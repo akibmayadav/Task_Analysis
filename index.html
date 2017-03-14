@@ -1,0 +1,212 @@
+<!--
+TASK ANAYSIS VISUALISATION USING D3.
+Author : Ambika Yadav
+
+Interactions:
+1. Press space to start animation .
+2. Press right arrow to go ahead in time. 
+3. Press left arrow to go behind in time . 
+
+Assumptions :
+1. The expected duration of every task is calculated in the dataset ,given that all the resources are given present before the initialisation of the task .
+
+BUGS :
+1. While listing the resources, first list all the human resources.
+-->
+<!DOCTYPE html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width" />
+<style>
+
+body 
+{
+  font: 10px sans-serif ; fill: #dbd8d0; stroke: none ;
+}
+
+.axis path 
+{
+  display: none;
+}
+
+.axis line 
+{
+  shape-rendering: crispEdges;
+  stroke: #dbd8d0;
+}
+
+.axis .minor line 
+{
+  stroke: #dbd8d0;
+  stroke-dasharray: 2,2;
+}
+
+button {
+  margin-top: 10px;
+  line-height: 10px;
+  font-weight: bold;
+  padding: 0 10px;
+  background: salmon;
+  border: none;
+}
+button:hover {
+  background: lightsalmon;
+}
+
+</style>
+<body>
+<script src="Libraries/d3.v3.min.js"></script>
+<script src="Data/Sample_Data.js"></script>
+<script src="Scripts/n_faced_polygon.js"></script>
+<script src="Scripts/tasks_related_drawing.js"></script>
+<script src="Scripts/time_scroller.js"></script>
+
+<script>
+// ---------------------------------------------// 
+
+// GENERIC VARIABLES
+var playing = 1;
+var interconnection = 1;
+var width = window.innerWidth,
+height = 850;
+var x_margin = 100;
+var y_margin = 100;
+var min_workload = 0.0;
+var max_workload = 1.0;
+var min_date = new Date("01/01/16");
+var max_date = new Date("06/01/17");
+var x_height = height - y_margin;
+var x_width = x_margin;
+var id ; //Timer ID
+var current_time_starting = x_margin;
+var resources_from_other_tasks = new Array();
+// *** STARTING THE SKETCH ON THE CANVAS *** //
+
+// INITIALISING THE CANVAS TO DRAW DATA //
+  var canvas = d3.select("body").append("svg")
+      .attr("id","main")
+      .attr("width", width)
+      .attr("height", window.innerHeight)
+      .attr("class", "mainsvg")  
+// BACKGROUND COLORS
+  canvas.append("rect")
+    .attr("id","main_background")
+    .attr("width", "100%")
+    .attr("height", window.innerHeight)
+    .attr("fill", "#25282E")
+
+  canvas.append("rect")
+    .attr("id","front_background")
+    .attr("width", width-(x_margin*2))
+    .attr("height", height-(y_margin*2))
+    .attr("transform","translate("+x_margin+","+y_margin+")")
+    .attr("fill","#dbd8d0" )
+    
+
+  scale = axis_construction(); // draw the axis and get the corrent xscale and yscale .
+  points_for_polygon = task_polygon_drawn("tasks"); // get the points_for_polygon array to draw polygon using task data 
+  interconnections_drawn(); // predessor and successor .
+  points_for_polygon = task_polygon_drawn("tasks");
+  human_resources_drawing(); // human resources circles
+  var starting_coordinate = scale.x(min_date);
+  time_indicator(current_time_starting); // time animation
+
+// TITLE
+   var project_title = canvas.append("g").attr("id","project_title");
+   project_title.append("text")
+             .text("VISUALISING TASK SYSTEMS")
+             .attr("font-family","Helvetica")
+             .attr("font-size",25)
+             .attr("fill","#dbd8d0")
+             .attr("text-anchor", "middle")
+             .attr("x",width/2)
+             .attr("y",30);
+
+//PROJECT DESCRIPTION
+  var project_title = canvas.append("g").attr("id","project_description");
+     project_title.append("text")
+               .text("A Visualisation Tool Developed For Complex Task Systems For M594GL | Ambika Yadav")
+               .attr("font-family","Helvetica")
+               .attr("font-size",12)
+               .attr("fill","#dbd8d0")
+               .attr("fill-opacity",0.5)
+               .attr("text-anchor", "middle")
+               .attr("x",width/2)
+               .attr("y",50);
+
+//PROJECT INTERACTION
+  var project_title = canvas.append("g").attr("id","project_description");
+     project_title.append("text")
+               .text("| Press SPACE KEY to Start or Stop the Time Animation | Use Arrow Keys For Fast Forward | Use Task Buttons to highlight Tasks |")
+               .attr("font-family","Helvetica")
+               .attr("font-size",14)
+               .attr("fill","#dbd8d0")
+               .attr("fill-opacity",0.5)
+               .attr("text-anchor", "middle")
+               .attr("x",width/2)
+               .attr("y",90);
+
+
+
+
+</script>
+<script src="Scripts/tasks_for_indiviual_tasks_highlight.js"></script>
+<script>
+
+function task_description_listing(task_number)
+{
+  var text = "| TASK NAME : " + Task_Data[task_number].Task_Name[5] + " | WORKLOAD : " + Task_Data[task_number].Workload + " | " + "RISK: " + Task_Data[task_number].Risk + " | " + " RESOURCES : " + Task_Data[task_number].Resources +" |";
+  var text_addition = canvas.append("g").attr("id","Task_Description")
+  text_addition.append("text")
+              .text(text)
+              .attr("font-family","Helvetica")
+              .attr("font-size",10)
+              .attr("fill","#dbd8d0")
+              .attr("text-anchor", "middle")
+              .attr("x",width/2)
+              .attr("y",height-y_margin+60);
+
+
+}
+
+// Creating buttons
+for ( var task_number = 0 ; task_number < Task_Data.length ; task_number++)
+{
+var button = document.createElement("button");
+button.setAttribute("value",task_number);
+button.innerHTML = Task_Data[task_number].Task_Name[5];
+button.style.position = "absolute" ;
+var px = "px";
+
+var top_space_number = height-y_margin + 70;;
+var top_space = top_space_number.toString();
+var final_top_space = top_space.concat(px);
+button.style.top = final_top_space;
+
+var left_distance_addition = (width - 2*x_margin -30)/(Task_Data.length-1);
+var left_space_number = x_margin + (task_number*left_distance_addition) +10 ;
+var left_space = left_space_number.toString();
+var final_left_space = left_space.concat(px);
+
+button.style.left = final_left_space;
+
+var body = document.getElementsByTagName("body")[0];
+body.appendChild(button);
+button.addEventListener ("click", function(t) 
+{
+canvas.selectAll("[id=click_polygon_addition]").remove();
+canvas.selectAll("[id=progress_highlighter]").remove();
+canvas.selectAll("[id=interconnection_highlight]").remove();
+canvas.selectAll("[id=human_resource_line]").remove();
+canvas.selectAll("[id=Task_Description]").remove();
+task_polygon_drawn_for_indiviual("click_polygon_addition",t.toElement.value);
+tasks_progress_drawing_on_click(t.toElement.value,"progress_highlighter");
+interconnections_click_drawn("interconnection_highlight",t.toElement.value);
+human_resources_drawing_on_click(t.toElement.value,"human_resource_line");
+task_description_listing(t.toElement.value);
+
+});
+
+}
+
+
+</script>
